@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IFC Viewer</title>
+<script src="/vendor/web-ifc-api-browser.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three.module.js",
+    "three/examples/jsm/": "/vendor/three/examples/jsm/",
+    "three/examples/jsm/utils/BufferGeometryUtils": "/vendor/three/examples/jsm/utils/BufferGeometryUtils.js",
+    "web-ifc": "/vendor/web-ifc-shim.js"
+  }
+}
+</script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #14181d;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #e6e9ec; }
+  #bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: rgba(20, 24, 29, .88); backdrop-filter: blur(6px);
+    border-bottom: 1px solid #262c33;
+  }
+  #bar .title { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #bar .spacer { flex: 1; }
+  #bar button {
+    background: transparent; border: 1px solid #3a434d; color: #c6cdd4;
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  #bar button:hover { border-color: #4f8cff; color: #fff; }
+  #hint { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 10;
+    font-size: 12px; color: #8b939c; background: rgba(20,24,29,.8); padding: 6px 14px; border-radius: 20px; }
+  #overlay {
+    position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; background: #14181d;
+  }
+  #overlay.hidden { display: none; }
+  #spinner { width: 34px; height: 34px; border: 3px solid #2c343d; border-top-color: #4f8cff;
+    border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #overlayMsg { font-size: 14px; color: #8b939c; }
+  #overlay.err #overlayMsg { color: #e08a8a; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <span class="title" id="title">Loading…</span>
+  <span class="spacer"></span>
+  <button id="resetBtn" title="Reset camera">Reset view</button>
+  <button id="copyBtn" title="Copy share link">Copy link</button>
+</div>
+<div id="overlay">
+  <div id="spinner"></div>
+  <div id="overlayMsg">Loading model…</div>
+</div>
+<div id="hint">drag&nbsp;=&nbsp;rotate&nbsp;·&nbsp;wheel&nbsp;=&nbsp;zoom&nbsp;·&nbsp;right-drag&nbsp;=&nbsp;pan</div>
+<script type="module" src="/js/viewer.js"></script>
+</body>
+</html>

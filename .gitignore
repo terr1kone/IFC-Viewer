@@ -1,0 +1,5 @@
+node_modules/
+models/*.ifc
+models/index.json
+*.log
+nohup.out

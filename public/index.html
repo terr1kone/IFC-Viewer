@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IFC Viewer — Launcher</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #14181d; color: #e6e9ec; min-height: 100vh;
+  }
+  header { padding: 20px 28px; border-bottom: 1px solid #262c33; display: flex; align-items: baseline; gap: 12px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: #8b939c; font-size: 13px; }
+  main { max-width: 860px; margin: 28px auto; padding: 0 20px; }
+  .upload {
+    border: 2px dashed #3a434d; border-radius: 10px; padding: 28px;
+    display: flex; flex-direction: column; gap: 14px; align-items: flex-start;
+    background: #1a1f25;
+  }
+  .upload.over { border-color: #4f8cff; background: #1d2530; }
+  button {
+    background: #4f8cff; color: #fff; border: 0; border-radius: 6px;
+    padding: 9px 18px; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { background: #33404f; cursor: default; }
+  button.ghost { background: transparent; border: 1px solid #3a434d; color: #c6cdd4; padding: 5px 10px; font-size: 12px; }
+  button.danger { border-color: #7a3b3b; color: #e08a8a; }
+  #status { font-size: 13px; color: #8b939c; min-height: 18px; }
+  #status.err { color: #e08a8a; }
+  table { width: 100%; border-collapse: collapse; margin-top: 26px; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #262c33; }
+  th { color: #8b939c; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  td a { color: #7fb0ff; text-decoration: none; word-break: break-all; }
+  td a:hover { text-decoration: underline; }
+  .empty { color: #8b939c; margin-top: 26px; font-size: 14px; }
+  .actions { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>IFC Viewer</h1>
+  <span>Upload an IFC model, get a shareable 3D link</span>
+</header>
+<main>
+  <div class="upload" id="dropzone">
+    <input type="file" id="fileInput" accept=".ifc">
+    <button id="uploadBtn" disabled>Upload &amp; create link</button>
+    <div id="status"></div>
+  </div>
+  <table id="table" hidden>
+    <thead>
+      <tr><th>Model</th><th>Size</th><th>Uploaded</th><th>Share link</th><th></th></tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" hidden>No models yet — upload an IFC file above.</div>
+</main>
+<script>
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const statusEl = document.getElementById('status');
+const dropzone = document.getElementById('dropzone');
+
+fileInput.addEventListener('change', () => {
+  uploadBtn.disabled = !fileInput.files.length;
+});
+
+['dragover', 'dragenter'].forEach(ev => dropzone.addEventListener(ev, e => {
+  e.preventDefault(); dropzone.classList.add('over');
+}));
+['dragleave', 'drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+  e.preventDefault(); dropzone.classList.remove('over');
+}));
+dropzone.addEventListener('drop', e => {
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    uploadBtn.disabled = false;
+  }
+});
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg;
+  statusEl.className = isErr ? 'err' : '';
+}
+
+async function upload() {
+  const file = fileInput.files[0];
+  if (!file) return;
+  uploadBtn.disabled = true;
+  setStatus('Uploading ' + file.name + ' (' + (file.size / 1048576).toFixed(1) + ' MB)…');
+  try {
+    const res = await fetch('/api/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Filename': file.name },
+      body: file,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    setStatus('Done — link created:');
+    const link = document.createElement('div');
+    const a = document.createElement('a');
+    a.href = data.url; a.textContent = data.url; a.style.color = '#7fb0ff';
+    link.appendChild(a);
+    statusEl.appendChild(link);
+    fileInput.value = '';
+    loadModels();
+  } catch (err) {
+    setStatus('Upload failed: ' + err.message, true);
+    uploadBtn.disabled = false;
+  }
+}
+
+uploadBtn.addEventListener('click', upload);
+
+function fmtSize(bytes) {
+  return bytes > 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+async function loadModels() {
+  const res = await fetch('/api/models');
+  const data = await res.json();
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const models = data.models || [];
+  document.getElementById('table').hidden = models.length === 0;
+  document.getElementById('empty').hidden = models.length !== 0;
+  for (const m of models) {
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.textContent = m.name;
+    const tdSize = document.createElement('td');
+    tdSize.textContent = fmtSize(m.size);
+    const tdDate = document.createElement('td');
+    tdDate.textContent = new Date(m.uploadedAt).toLocaleString();
+    const tdLink = document.createElement('td');
+    const a = document.createElement('a');
+    a.href = m.url; a.textContent = m.url; a.target = '_blank';
+    tdLink.appendChild(a);
+    const tdActions = document.createElement('td');
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'ghost'; copyBtn.textContent = 'Copy link';
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(m.url);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => copyBtn.textContent = 'Copy link', 1500);
+    });
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ghost danger'; delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('Delete "' + m.name + '"? The link will stop working.')) return;
+      await fetch('/api/models/' + m.id, { method: 'DELETE' });
+      loadModels();
+    });
+    actions.appendChild(copyBtn); actions.appendChild(delBtn);
+    tdActions.appendChild(actions);
+    tr.append(tdName, tdSize, tdDate, tdLink, tdActions);
+    tbody.appendChild(tr);
+  }
+}
+
+loadModels();
+</script>
+</body>
+</html>
